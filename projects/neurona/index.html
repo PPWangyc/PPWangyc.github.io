@@ -261,7 +261,7 @@
     /* Method Summary */
     .method-steps {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 16px;
       margin: 24px 0;
     }
@@ -402,6 +402,10 @@
         grid-template-columns: 1fr;
       }
 
+      .method-steps {
+        grid-template-columns: 1fr;
+      }
+
       .results-grid {
         grid-template-columns: 1fr;
       }
@@ -524,12 +528,12 @@
 
       <div class="highlights">
         <div class="highlight-card">
-          <h3>Neuro-Symbolic</h3>
-          <p>Integrates symbolic reasoning with neural grounding modules to decode compositional concepts from fMRI activity.</p>
+          <h3>fMRI-QA Benchmarks</h3>
+          <p>Introduces BOLD5000-QA and CNeuroMod-QA for compositional semantic concept decoding from brain activity.</p>
         </div>
         <div class="highlight-card">
-          <h3>44% Improvement</h3>
-          <p>Achieves 44% relative improvement over the strongest prior fMRI decoding method on fMRI question answering.</p>
+          <h3>Neuro-Symbolic</h3>
+          <p>Integrates symbolic reasoning with neural grounding modules to decode compositional concepts from fMRI activity.</p>
         </div>
         <div class="highlight-card">
           <h3>Generalization</h3>
@@ -663,7 +667,7 @@
     <div class="container">
       <h2>Neural Decoding Performance</h2>
       <p>
-        We evaluate on fully disjoint train/test splits with no overlapping entity-relation combinations. NEURONA achieves a <strong>44% relative improvement</strong> over the strongest baseline, with large gains on relational queries (Action, Position). Prior methods degrade to near-chance while NEURONA retains strong performance.
+        We evaluate on fully disjoint train/test splits with no overlapping entity-relation combinations. NEURONA achieves a <strong>47% relative improvement</strong> over the strongest baseline, with large gains on relational queries (Action, Position). Prior methods degrade to near-chance while NEURONA retains strong performance.
       </p>
       <p style="margin-top: 12px;">
         We test structural hypotheses, progressively adding guidance for grounding. Full argument-guided grounding yields the best performance; multi-region grounding alone does not help &mdash; <strong>structural guidance is the key</strong>.
@@ -689,10 +693,10 @@
         <div class="bibtex-code">
           <button class="bibtex-copy-btn" onclick="copyBibtex(this)"><i class="bi bi-clipboard"></i> Copy</button>
 <pre>@inproceedings{wang2026neurona,
-  title     = {Neuro-Symbolic Decoding of Neural Activity},
-  author    = {Yanchen Wang and Joy Hsu and Ehsan Adeli and Jiajun Wu},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2026}
+  title={Neuro-Symbolic Decoding of Neural Activity},
+  author={Wang, Yanchen and Hsu, Joy and Adeli, Ehsan and Wu, Jiajun},
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2026}
 }</pre>
         </div>
       </div>
