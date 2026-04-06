@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:christinaliu2020.github.io)",
+      "WebFetch(domain:ai.stanford.edu)",
+      "WebFetch(domain:stanford.edu)"
+    ]
+  }
+}
