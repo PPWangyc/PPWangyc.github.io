@@ -1030,6 +1030,9 @@
       const scale = 2.0 / (Math.max(size.x, size.y, size.z) || 1);
       geometry.translate(-center.x, -center.y, -center.z);
       geometry.scale(scale, scale, scale);
+      // These .ply clouds use a camera (Y-down) convention, so the animal
+      // renders upside down. Flip 180° about the horizontal axis so it's upright.
+      geometry.rotateX(Math.PI);
 
       const n = geometry.getAttribute('position').count;
 
