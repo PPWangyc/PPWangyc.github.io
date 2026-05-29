@@ -286,6 +286,55 @@
       .viewer-views img { width: 46px; height: 46px; }
     }
 
+    /* Interactive encoding viewer (4D point cloud + raster) */
+    .enc-shell { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 12px; padding: 16px; }
+    .enc-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 768px) { .enc-stage { grid-template-columns: 1fr; } }
+    .enc-pane-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-text-muted); margin-bottom: 6px; }
+    .enc-video-wrap { width: 100%; aspect-ratio: 3 / 2; background: #000; border-radius: 8px; overflow: hidden; }
+    .enc-video-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .enc-pc-wrap {
+      position: relative; width: 100%; aspect-ratio: 3 / 2;   /* match input video pane */
+      border-radius: 8px; overflow: hidden; cursor: grab;
+      background: radial-gradient(circle at 50% 35%, #ffffff 0%, #eef0f2 70%, #e3e6e9 100%);
+    }
+    .enc-pc-wrap.dragging { cursor: grabbing; }
+    #encPc { display: block; width: 100%; height: 100%; }
+    .enc-overlay {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px; text-align: center;
+      color: var(--color-text-secondary); padding: 24px;
+    }
+    .enc-overlay.hidden { display: none; }
+    .enc-time-badge {
+      position: absolute; top: 10px; left: 12px;
+      font-family: var(--font-mono); font-size: 12px; color: var(--color-text-secondary);
+      background: rgba(255,255,255,0.78); padding: 3px 9px; border-radius: 6px; pointer-events: none;
+    }
+    .enc-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 12px; }
+    .enc-controls .ctl-btn {
+      font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 7px;
+      border: 1.5px solid var(--color-border); background: var(--color-bg);
+      color: var(--color-text-secondary); cursor: pointer; transition: all 0.18s ease;
+    }
+    .enc-controls .ctl-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .enc-controls .ctl-btn.on { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+    .enc-controls .slider-group { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-muted); flex: 1 1 220px; }
+    .enc-controls input[type=range] { accent-color: var(--color-primary); }
+    .enc-controls #encTimeSlider { flex: 1; }
+
+    .raster-block { margin-top: 18px; }
+    .raster-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-text-muted); margin-bottom: 6px; }
+    .raster-canvas-wrap { position: relative; width: 100%; }
+    .raster-canvas-wrap canvas { width: 100%; display: block; border-radius: 6px; image-rendering: auto; }
+    .raster-rowlabels { display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-muted); margin-top: 4px; }
+    .enc-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--color-text-muted); }
+    .enc-legend .item { display: inline-flex; align-items: center; gap: 6px; }
+    .enc-legend .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+    .enc-colorbar { height: 12px; width: 120px; border-radius: 3px;
+      background: linear-gradient(to right, #0000ff, #ffffff, #ff0000); border: 1px solid rgba(0,0,0,0.1); }
+
     /* Video gallery grid */
     .video-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 8px 0; }
     .video-card { background: #000; border-radius: 10px; overflow: hidden; position: relative; }
@@ -689,6 +738,71 @@
 
   <hr class="section-sep">
 
+  <!-- Interactive encoding: 4D point cloud + neural raster -->
+  <section id="encoding-interactive">
+    <div class="container">
+      <h2>Explore behavior &amp; neural activity</h2>
+      <p>
+        Press play to watch the 6-view input video alongside BEAST3D's reconstructed 3D point cloud
+        through a 1-minute chickadee bout, synced
+        to the raster below: <strong>keypoint velocity</strong>, <strong>ground-truth spikes</strong>, and
+        <strong>BEAST3D-predicted</strong> activity for all 52 hippocampal neurons. Drag the 3D view to
+        rotate; use the time slider to scrub.
+      </p>
+
+      <div class="enc-shell" style="margin-top: 20px;">
+        <div class="enc-stage">
+          <div class="enc-pane">
+            <div class="enc-pane-label">Input &mdash; 6 camera views</div>
+            <div class="enc-video-wrap">
+              <video id="encInputVideo" muted loop playsinline preload="auto"
+                     src="assets/encoding/chickadee/web/input_6view_seg.mp4"></video>
+            </div>
+          </div>
+          <div class="enc-pane">
+            <div class="enc-pane-label">BEAST3D &mdash; 3D reconstruction</div>
+            <div class="enc-pc-wrap" id="encPcWrap">
+              <canvas id="encPc"></canvas>
+              <div class="enc-time-badge" id="encTimeBadge">t = 0.00 s</div>
+              <div class="enc-overlay" id="encOverlay">
+                <div class="spinner"></div>
+                <p id="encMsg">Loading 4D point cloud&hellip;</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="enc-controls">
+          <button class="ctl-btn on" id="encPlayBtn"><i class="bi bi-pause-fill"></i> Pause</button>
+          <button class="ctl-btn" id="encRotateBtn"><i class="bi bi-arrow-repeat"></i> Auto-rotate</button>
+          <div class="slider-group">
+            <span>Time</span>
+            <input type="range" id="encTimeSlider" min="0" max="3599" step="1" value="0">
+          </div>
+          <div class="slider-group" style="flex:0 0 auto;">
+            <i class="bi bi-circle-fill" style="font-size:9px;"></i>
+            <span>Point size</span>
+            <input type="range" id="encSizeSlider" min="0.5" max="6" step="0.1" value="2.5" style="width:90px;">
+          </div>
+        </div>
+
+        <!-- Segment raster (full-res, sweeping cursor) -->
+        <div class="raster-block">
+          <div class="raster-title">This 60&nbsp;s segment &mdash; keypoint velocity &middot; ground-truth spikes &middot; BEAST3D prediction</div>
+          <div class="raster-canvas-wrap">
+            <canvas id="encSegCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="enc-legend">
+          <span class="item">z-score <span class="enc-colorbar"></span> &minus;2.5&hellip;+2.5</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-sep">
+
   <!-- Citation -->
   <section id="citation">
     <div class="container">
@@ -1064,6 +1178,327 @@
     resize();
     animate();
     loadDataset('cheese3d');
+  </script>
+
+  <!-- Interactive encoding: 4D point cloud + neural raster -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+
+    const BASE = 'assets/encoding/chickadee/web/';
+    const FOV = 45;
+    const PLAY_FPS = 60;          // real-time playback of the 60 fps source segment
+    const SEG_H = 285, GAP = 3;
+
+    const wrap   = document.getElementById('encPcWrap');
+    const canvas = document.getElementById('encPc');
+    const overlay= document.getElementById('encOverlay');
+    const encMsg = document.getElementById('encMsg');
+    const badge  = document.getElementById('encTimeBadge');
+    const playBtn= document.getElementById('encPlayBtn');
+    const rotBtn = document.getElementById('encRotateBtn');
+    const timeSl = document.getElementById('encTimeSlider');
+    const sizeSl = document.getElementById('encSizeSlider');
+    const segCv  = document.getElementById('encSegCanvas');
+    const video  = document.getElementById('encInputVideo');
+
+    function bwr(v) {                 // u8 (0..255) <-> z in [-2.5,2.5] -> diverging
+      const x = v / 255 * 2 - 1;
+      return x < 0 ? [255 * (1 + x), 255 * (1 + x), 255]
+                   : [255, 255 * (1 - x), 255 * (1 - x)];
+    }
+    function rasterOffscreen(block, rows, width, gapRows, splitRow) {
+      // block: Uint8Array of stacked sub-panels; rows: array of panel row-counts.
+      const totalRows = rows.reduce((a, b) => a + b, 0) + gapRows * (rows.length - 1)
+                        + (splitRow ? 1 : 0);
+      const off = document.createElement('canvas');
+      off.width = width; off.height = totalRows;
+      const ctx = off.getContext('2d');
+      const img = ctx.createImageData(width, totalRows);
+      const D = img.data;
+      D.fill(255);                   // white gaps
+      let src = 0, y = 0;
+      for (let p = 0; p < rows.length; p++) {
+        for (let r = 0; r < rows[p]; r++, y++) {
+          for (let x = 0; x < width; x++) {
+            const [R, G, B] = bwr(block[src + r * width + x]);
+            const o = (y * width + x) * 4;
+            D[o] = R; D[o + 1] = G; D[o + 2] = B; D[o + 3] = 255;
+          }
+        }
+        src += rows[p] * width;
+        if (p < rows.length - 1) y += gapRows;   // skip gap rows (left white)
+      }
+      if (splitRow) {                // bottom split strip
+        for (let x = 0; x < width; x++) {
+          const c = SPLIT_RGB[splitRow[x]] || [255, 255, 255];
+          const o = (y * width + x) * 4;
+          D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      return off;
+    }
+    const hex2rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    let SPLIT_RGB = [];
+
+    function fitCanvas(cv, cssH) {
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      const cssW = cv.parentElement.clientWidth;
+      const needW = Math.round(cssW * dpr), needH = Math.round(cssH * dpr);
+      if (cv.width !== needW || cv.height !== needH) {   // realloc only on real resize
+        cv.width = needW; cv.height = needH; cv.style.height = cssH + 'px';
+      }
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, w: cssW, h: cssH };
+    }
+
+    // ---- Three.js point-cloud player ----
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(FOV, 1.6, 0.01, 100);
+    camera.position.set(0, 0, 3);
+    const controls = new TrackballControls(camera, canvas);
+    controls.rotateSpeed = 3.0; controls.zoomSpeed = 1.2; controls.noPan = true;
+    controls.dynamicDampingFactor = 0.15; controls.minDistance = 1.0; controls.maxDistance = 12.0;
+
+    const uniforms = {
+      uSize:  { value: 0.025 },
+      uScale: { value: 600.0 },
+      uNear:  { value: 2.0 },
+      uFar:   { value: 4.0 },
+      uColorNear: { value: new THREE.Color('#2b2b33') },
+      uColorFar:  { value: new THREE.Color('#cdd2d8') }
+    };
+    const pcMat = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: `
+        uniform float uSize; uniform float uScale; varying float vDepth;
+        void main() {
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vDepth = -mv.z;
+          gl_PointSize = max(1.0, uSize * (uScale / -mv.z));
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        precision mediump float;
+        uniform float uNear; uniform float uFar;
+        uniform vec3 uColorNear; uniform vec3 uColorFar; varying float vDepth;
+        void main() {
+          vec2 c = gl_PointCoord - vec2(0.5);
+          if (dot(c, c) > 0.25) discard;
+          float s = clamp((vDepth - uNear) / (uFar - uNear), 0.0, 1.0);
+          gl_FragColor = vec4(mix(uColorNear, uColorFar, s), 1.0);
+        }`
+    });
+
+    let META, POS, OFFS, MAXC, NF = 0;
+    let frame = 0, frameF = 0, playing = true, autoRotate = false;
+    let points = null, posAttr = null, lastT = 0;
+    let segOff = null, SEG_ROWS = [];
+    let userScrub = false;        // true while the user drags the time slider
+    let seeking = false;          // true while a video seek is in flight
+    let seekDeadline = 0;         // safety: force-clear `seeking` after this time
+
+    function buildPointGeometry() {
+      const g = new THREE.BufferGeometry();
+      posAttr = new THREE.BufferAttribute(new Float32Array(MAXC * 3), 3);
+      posAttr.setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute('position', posAttr);
+      points = new THREE.Points(g, pcMat);
+      scene.add(points);
+    }
+    function showFrame(i) {            // update 3D + UI only (no video seek)
+      frame = ((i % NF) + NF) % NF;
+      const start = OFFS[frame], cnt = OFFS[frame + 1] - OFFS[frame];
+      posAttr.array.set(POS.subarray(start * 3, (start + cnt) * 3));
+      posAttr.needsUpdate = true;
+      points.geometry.setDrawRange(0, cnt);
+      timeSl.value = frame;
+      badge.textContent = 't = ' + (frame / 60).toFixed(2) + ' s';
+    }
+    // The video fires 'seeked' when a seek completes; that's when its clock is
+    // valid again, so we resume following it.
+    video.addEventListener('seeked', () => { seeking = false; });
+
+    function resizeAll() {
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      controls.handleResize();
+      uniforms.uScale.value = (h * renderer.getPixelRatio()) /
+        (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2));
+      drawSeg();
+    }
+
+    const SEG_NAMES = ['vel.', 'observed', 'pred'];
+    const SEG_YAXIS = ['KPs', 'Neurons', 'Neurons'];   // rotated y-axis (KPs = keypoints)
+    const PLOT_L = 26, PLOT_B = 34, HDR_H = 16;  // left margin (y-axis), x-axis margin, header
+
+    function drawSeg() {
+      if (!segOff) return;
+      const { ctx, w, h } = fitCanvas(segCv, SEG_H);
+      ctx.clearRect(0, 0, w, h);
+      const px = PLOT_L, py = 0, pw = w - PLOT_L, ph = h - PLOT_B;
+
+      // lay out: a header line above each panel, then its data band
+      const sum = SEG_ROWS.reduce((a, b) => a + b, 0);
+      const dataH = ph - HDR_H * SEG_ROWS.length;
+      const bands = [];
+      let srcY = 0, y = py;
+      for (let p = 0; p < SEG_ROWS.length; p++) {
+        const headerY = y; y += HDR_H;
+        const bandY = y, bandH = dataH * SEG_ROWS[p] / sum;
+        bands.push({ headerY, bandY, bandH, srcY, srcH: SEG_ROWS[p] });
+        srcY += SEG_ROWS[p] + GAP; y += bandH;
+      }
+
+      ctx.imageSmoothingEnabled = true;
+      for (const b of bands)
+        ctx.drawImage(segOff, 0, b.srcY, segOff.width, b.srcH, px, b.bandY, pw, b.bandH);
+
+      // progressive reveal: blank the not-yet-played (future) region
+      const revealX = px + (frame / (META.seg.len - 1)) * pw;
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(revealX, py, w - revealX, ph);
+      ctx.strokeStyle = 'rgba(117,0,20,0.85)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(revealX, py); ctx.lineTo(revealX, py + ph); ctx.stroke();
+
+      // panel name above each band + rotated y-axis label on the left
+      for (let p = 0; p < bands.length; p++) {
+        const b = bands[p];
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.font = '600 12px Inter, sans-serif'; ctx.fillStyle = 'rgba(40,40,50,0.92)';
+        ctx.fillText(SEG_NAMES[p], px, b.headerY + 12);
+        ctx.save();
+        ctx.translate(13, b.bandY + b.bandH / 2); ctx.rotate(-Math.PI / 2);
+        ctx.font = '500 10px Inter, sans-serif'; ctx.fillStyle = 'rgba(110,110,120,0.95)';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(SEG_YAXIS[p], 0, 0);
+        ctx.restore();
+      }
+
+      // x-axis: ticks every 10 s + "Time (s)"; edge ticks aligned to stay in view
+      const durS = META.seg.len / META.fps;
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+      ctx.fillStyle = 'rgba(90,90,100,0.95)'; ctx.font = '10px Inter, sans-serif';
+      ctx.textBaseline = 'top';
+      for (let s = 0; s <= durS + 0.001; s += 10) {
+        const x = px + (s / durS) * pw;
+        ctx.beginPath(); ctx.moveTo(x, ph); ctx.lineTo(x, ph + 4); ctx.stroke();
+        ctx.textAlign = s < 1 ? 'left' : (s > durS - 1 ? 'right' : 'center');
+        ctx.fillText(String(s), x, ph + 5);
+      }
+      ctx.font = '600 11px Inter, sans-serif'; ctx.fillStyle = 'rgba(40,40,50,0.9)';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText('Time (s)', px + pw / 2, h - 3);
+      ctx.textAlign = 'left';
+    }
+
+    function animate(t) {
+      requestAnimationFrame(animate);
+      if (!META) { renderer.render(scene, camera); return; }
+      if (seeking && t > seekDeadline) seeking = false;   // safety: seek never resolved
+      // Follow the video clock only when playing, not scrubbing, and not mid-seek.
+      if (playing && !userScrub && !seeking) {
+        if (video.readyState >= 2 && video.duration) {
+          showFrame(Math.min(NF - 1, Math.floor(video.currentTime * 60)));
+        } else {
+          // fallback: advance by wall-clock if the video isn't available
+          if (lastT) frameF += (t - lastT) / 1000 * PLAY_FPS;
+          if (frameF >= 1) { showFrame(frame + Math.floor(frameF)); frameF %= 1; }
+        }
+      }
+      lastT = t;
+      if (autoRotate && points) points.rotation.y += 0.004;
+      controls.update();
+      const d = camera.position.length();
+      uniforms.uNear.value = d - 1.1; uniforms.uFar.value = d + 1.1;
+      renderer.render(scene, camera);
+      drawSeg();
+    }
+
+    async function boot() {
+      try {
+        const [meta, segBuf, pcBuf] = await Promise.all([
+          fetch(BASE + 'meta.json').then(r => { if (!r.ok) throw 0; return r.json(); }),
+          fetch(BASE + 'raster_seg_u8.bin').then(r => r.arrayBuffer()),
+          fetch(BASE + 'pc_xyz_i16.bin').then(r => r.arrayBuffer())
+        ]);
+        META = meta;
+        SPLIT_RGB = (meta.split.colors || []).map(hex2rgb);
+        NF = meta.seg.len;
+        timeSl.max = NF - 1;
+
+        // decode point cloud (int16 normalized to [-1,1])
+        const q = new Int16Array(pcBuf);
+        POS = new Float32Array(q.length);
+        for (let i = 0; i < q.length; i++) POS[i] = q[i] / 32767;
+        OFFS = new Int32Array(NF + 1);
+        const counts = meta.pc.counts;
+        for (let i = 0; i < NF; i++) OFFS[i + 1] = OFFS[i] + counts[i];
+        MAXC = counts.reduce((a, b) => Math.max(a, b), 0);
+        buildPointGeometry();
+
+        // segment raster
+        const Ls = meta.seg.len;
+        const su8 = new Uint8Array(segBuf);
+        SEG_ROWS = [meta.seg.rowsBeh, meta.seg.rowsGt, meta.seg.rowsPred];
+        segOff = rasterOffscreen(su8, SEG_ROWS, Ls, GAP, null);
+
+        overlay.classList.add('hidden');
+        showFrame(0);
+        resizeAll();
+
+        // input video as smooth master clock at PLAY_FPS/60 speed
+        video.playbackRate = PLAY_FPS / 60;
+        if (playing) video.play().catch(() => {   // autoplay blocked -> show Play
+          playing = false;
+          playBtn.classList.remove('on');
+          playBtn.innerHTML = '<i class="bi bi-play-fill"></i> Play';
+        });
+      } catch (e) {
+        encMsg.innerHTML = "Couldn't load the encoding data.<br>" +
+          "<small>Run <code>assets/encoding/make_web_encoding.py</code> to generate it.</small>";
+        overlay.querySelector('.spinner').style.display = 'none';
+      }
+    }
+
+    // ---- interactions ----
+    playBtn.addEventListener('click', () => {
+      playing = !playing; lastT = 0;
+      playBtn.classList.toggle('on', playing);
+      playBtn.innerHTML = playing ? '<i class="bi bi-pause-fill"></i> Pause'
+                                  : '<i class="bi bi-play-fill"></i> Play';
+      if (playing) video.play().catch(() => {}); else video.pause();
+    });
+    rotBtn.addEventListener('click', () => {
+      autoRotate = !autoRotate; rotBtn.classList.toggle('on', autoRotate);
+    });
+    // Time slider is the only time control. While dragging, the 3D + raster
+    // cursor follow live via showFrame and the video stays paused (no seek
+    // thrash); on release we seek the video once and resume.
+    const scrubStart = () => { userScrub = true; video.pause(); };
+    const scrubEnd = () => {
+      if (!userScrub) return;
+      userScrub = false;
+      if (video.readyState >= 1) { seeking = true; seekDeadline = lastT + 800; video.currentTime = frame / 60; }
+      if (playing) video.play().catch(() => {});
+    };
+    timeSl.addEventListener('pointerdown', scrubStart);
+    timeSl.addEventListener('input', (e) => { userScrub = true; if (META) showFrame(parseInt(e.target.value)); });
+    timeSl.addEventListener('change', scrubEnd);
+    window.addEventListener('pointerup', scrubEnd);
+    sizeSl.addEventListener('input', (e) => { uniforms.uSize.value = parseFloat(e.target.value) * 0.01; });
+
+    canvas.addEventListener('pointerdown', () => wrap.classList.add('dragging'));
+    window.addEventListener('pointerup', () => wrap.classList.remove('dragging'));
+    window.addEventListener('resize', () => { if (META) resizeAll(); });
+
+    requestAnimationFrame(animate);
+    boot();
   </script>
 
   <script>
