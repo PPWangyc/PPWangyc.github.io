@@ -400,15 +400,15 @@
 
       <div class="authors">
         <span><a href="https://ppwangyc.github.io/">Yanchen Wang</a><sup>1</sup></span>
-        <span>Lenny Aharon<sup>1</sup></span>
-        <span>Wangshu Zhu<sup>1</sup></span>
-        <span>Kyle Daruwalla<sup>2</sup></span>
-        <span>Linghua Zhang<sup>2</sup></span>
-        <span>Jiaru Zou<sup>3</sup></span>
-        <span>Selmaan Chettih<sup>1</sup></span>
-        <span>Helen Hou<sup>2</sup></span>
-        <span>Liam Paninski<sup>1</sup></span>
-        <span>Matthew R. Whiteway<sup>1</sup></span>
+        <span><a href="https://scholar.google.com/citations?user=vuOpbEIAAAAJ&hl=en">Lenny Aharon</a><sup>1</sup></span>
+        <span><a href="https://scholar.google.com/citations?user=oJAOF7UAAAAJ&hl=en">Wangshu Zhu</a><sup>1</sup></span>
+        <span><a href="https://www.darsnack.info/">Kyle Daruwalla</a><sup>2</sup></span>
+        <span><a href="https://scholar.google.com/citations?user=n03lmLcAAAAJ&hl=en">Linghua Zhang</a><sup>2</sup></span>
+        <span><a href="https://scholar.google.com/citations?user=GzLTey4AAAAJ&hl=en">Jiaru Zou</a><sup>3</sup></span>
+        <span><a href="https://selmaan.github.io/">Selmaan Chettih</a><sup>1</sup></span>
+        <span><a href="https://helenxhou.github.io/">Helen Hou</a><sup>2</sup></span>
+        <span><a href="https://www.stat.columbia.edu/~liam/">Liam Paninski</a><sup>1</sup></span>
+        <span><a href="https://themattinthehatt.github.io/">Matthew R. Whiteway</a><sup>1</sup></span>
       </div>
       <div class="affiliations">
         <sup>1</sup> Columbia University &nbsp;&middot;&nbsp;
@@ -552,6 +552,71 @@
         <div class="viewer-views" id="viewerViews" style="display:none;">
           <div class="views-label">Input views</div>
           <div class="views-row" id="viewerViewsRow"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-sep">
+
+  <!-- Interactive encoding: 4D point cloud + neural raster -->
+  <section id="encoding-interactive">
+    <div class="container">
+      <h2>Explore behavior &amp; neural activity</h2>
+      <p>
+        Press play to watch the 6-view input video alongside BEAST3D's reconstructed 3D point cloud
+        through a 1-minute chickadee bout, synced
+        to the raster below: <strong>keypoint velocity</strong>, <strong>ground-truth spikes</strong>, and
+        <strong>BEAST3D-predicted</strong> activity for all 52 hippocampal neurons. Drag the 3D view to
+        rotate; use the time slider to scrub.
+      </p>
+
+      <div class="enc-shell" style="margin-top: 20px;">
+        <div class="enc-stage">
+          <div class="enc-pane">
+            <div class="enc-pane-label">Input &mdash; 6 camera views</div>
+            <div class="enc-video-wrap">
+              <video id="encInputVideo" muted loop playsinline preload="auto"
+                     src="assets/encoding/chickadee/web/input_6view_seg.mp4"></video>
+            </div>
+          </div>
+          <div class="enc-pane">
+            <div class="enc-pane-label">BEAST3D &mdash; 3D reconstruction</div>
+            <div class="enc-pc-wrap" id="encPcWrap">
+              <canvas id="encPc"></canvas>
+              <div class="enc-time-badge" id="encTimeBadge">t = 0.00 s</div>
+              <div class="enc-overlay" id="encOverlay">
+                <div class="spinner"></div>
+                <p id="encMsg">Loading 4D point cloud&hellip;</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="enc-controls">
+          <button class="ctl-btn on" id="encPlayBtn"><i class="bi bi-pause-fill"></i> Pause</button>
+          <button class="ctl-btn" id="encRotateBtn"><i class="bi bi-arrow-repeat"></i> Auto-rotate</button>
+          <div class="slider-group">
+            <span>Time</span>
+            <input type="range" id="encTimeSlider" min="0" max="3599" step="1" value="0">
+          </div>
+          <div class="slider-group" style="flex:0 0 auto;">
+            <i class="bi bi-circle-fill" style="font-size:9px;"></i>
+            <span>Point size</span>
+            <input type="range" id="encSizeSlider" min="0.5" max="6" step="0.1" value="2.5" style="width:90px;">
+          </div>
+        </div>
+
+        <!-- Segment raster (full-res, sweeping cursor) -->
+        <div class="raster-block">
+          <div class="raster-title">This 60&nbsp;s segment &mdash; keypoint velocity &middot; ground-truth spikes &middot; BEAST3D prediction</div>
+          <div class="raster-canvas-wrap">
+            <canvas id="encSegCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="enc-legend">
+          <span class="item">z-score <span class="enc-colorbar"></span> &minus;2.5&hellip;+2.5</span>
         </div>
       </div>
     </div>
@@ -732,71 +797,6 @@
           Bits-Per-Spike, BEAST3D vs. keypoints. <strong>c:</strong> average BPS across keypoints,
           BEAST, Pose Splatter, and BEAST3D, with S.E.M. across neurons.
         </p>
-      </div>
-    </div>
-  </section>
-
-  <hr class="section-sep">
-
-  <!-- Interactive encoding: 4D point cloud + neural raster -->
-  <section id="encoding-interactive">
-    <div class="container">
-      <h2>Explore behavior &amp; neural activity</h2>
-      <p>
-        Press play to watch the 6-view input video alongside BEAST3D's reconstructed 3D point cloud
-        through a 1-minute chickadee bout, synced
-        to the raster below: <strong>keypoint velocity</strong>, <strong>ground-truth spikes</strong>, and
-        <strong>BEAST3D-predicted</strong> activity for all 52 hippocampal neurons. Drag the 3D view to
-        rotate; use the time slider to scrub.
-      </p>
-
-      <div class="enc-shell" style="margin-top: 20px;">
-        <div class="enc-stage">
-          <div class="enc-pane">
-            <div class="enc-pane-label">Input &mdash; 6 camera views</div>
-            <div class="enc-video-wrap">
-              <video id="encInputVideo" muted loop playsinline preload="auto"
-                     src="assets/encoding/chickadee/web/input_6view_seg.mp4"></video>
-            </div>
-          </div>
-          <div class="enc-pane">
-            <div class="enc-pane-label">BEAST3D &mdash; 3D reconstruction</div>
-            <div class="enc-pc-wrap" id="encPcWrap">
-              <canvas id="encPc"></canvas>
-              <div class="enc-time-badge" id="encTimeBadge">t = 0.00 s</div>
-              <div class="enc-overlay" id="encOverlay">
-                <div class="spinner"></div>
-                <p id="encMsg">Loading 4D point cloud&hellip;</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="enc-controls">
-          <button class="ctl-btn on" id="encPlayBtn"><i class="bi bi-pause-fill"></i> Pause</button>
-          <button class="ctl-btn" id="encRotateBtn"><i class="bi bi-arrow-repeat"></i> Auto-rotate</button>
-          <div class="slider-group">
-            <span>Time</span>
-            <input type="range" id="encTimeSlider" min="0" max="3599" step="1" value="0">
-          </div>
-          <div class="slider-group" style="flex:0 0 auto;">
-            <i class="bi bi-circle-fill" style="font-size:9px;"></i>
-            <span>Point size</span>
-            <input type="range" id="encSizeSlider" min="0.5" max="6" step="0.1" value="2.5" style="width:90px;">
-          </div>
-        </div>
-
-        <!-- Segment raster (full-res, sweeping cursor) -->
-        <div class="raster-block">
-          <div class="raster-title">This 60&nbsp;s segment &mdash; keypoint velocity &middot; ground-truth spikes &middot; BEAST3D prediction</div>
-          <div class="raster-canvas-wrap">
-            <canvas id="encSegCanvas"></canvas>
-          </div>
-        </div>
-
-        <div class="enc-legend">
-          <span class="item">z-score <span class="enc-colorbar"></span> &minus;2.5&hellip;+2.5</span>
-        </div>
       </div>
     </div>
   </section>
@@ -1501,7 +1501,12 @@
     window.addEventListener('resize', () => { if (META) resizeAll(); });
 
     requestAnimationFrame(animate);
-    boot();
+    // Lazy-load the (~30 MB) data only when the section nears the viewport.
+    let booted = false;
+    const io = new IntersectionObserver((entries) => {
+      if (!booted && entries.some(e => e.isIntersecting)) { booted = true; io.disconnect(); boot(); }
+    }, { rootMargin: '700px' });
+    io.observe(document.getElementById('encoding-interactive'));
   </script>
 
   <script>
