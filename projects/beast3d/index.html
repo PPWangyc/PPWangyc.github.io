@@ -505,12 +505,12 @@
   <!-- Interactive point cloud -->
   <section id="explore">
     <div class="container">
-      <h2>Explore the 3D reconstructions</h2>
+      <h2>Explore the 4D reconstructions</h2>
       <p>
-        BEAST3D represents each frame as a set of 3D Gaussian splats. Below are the predicted
-        point clouds (position&nbsp;+&nbsp;color) for one example frame per dataset &mdash;
-        <strong>drag to rotate, scroll to zoom</strong>. This is the same spatially-grounded
-        representation used for novel view synthesis, pose estimation, and neural encoding.
+        Press play to watch BEAST3D's predicted 3D Gaussian point cloud
+        (position&nbsp;+&nbsp;color) move through time for a behaving subject, and
+        <strong>drag to rotate, scroll to zoom</strong> from any viewpoint. Switch species with the
+        tabs.
       </p>
 
       <div class="viewer-shell" style="margin-top: 20px;">
@@ -535,17 +535,22 @@
         </div>
 
         <div class="viewer-controls">
+          <button class="ctl-btn on" id="playBtn"><i class="bi bi-pause-fill"></i> Pause</button>
           <button class="ctl-btn on" id="rotateBtn"><i class="bi bi-arrow-repeat"></i> Auto-rotate</button>
           <button class="ctl-btn" id="resetBtn"><i class="bi bi-arrows-fullscreen"></i> Reset view</button>
-          <div class="slider-group">
-            <i class="bi bi-circle-fill" style="font-size:9px;"></i>
-            <span>Point size</span>
-            <input type="range" id="sizeSlider" min="0.5" max="6" step="0.1" value="2">
+          <div class="slider-group" style="flex:1 1 180px;">
+            <span>Time</span>
+            <input type="range" id="timeSlider" min="0" max="0" step="1" value="0" style="flex:1;">
           </div>
-          <div class="slider-group" id="opacityGroup">
+          <div class="slider-group" style="flex:0 0 auto;">
+            <i class="bi bi-circle-fill" style="font-size:9px;"></i>
+            <span>Size</span>
+            <input type="range" id="sizeSlider" min="0.5" max="6" step="0.1" value="6" style="width:80px;">
+          </div>
+          <div class="slider-group" id="opacityGroup" style="flex:0 0 auto;">
             <i class="bi bi-droplet-half"></i>
             <span>Opacity &ge; <b id="opacityVal">0.05</b></span>
-            <input type="range" id="opacitySlider" min="0.001" max="0.1" step="0.001" value="0.05">
+            <input type="range" id="opacitySlider" min="0.05" max="0.95" step="0.01" value="0.05" style="width:80px;">
           </div>
         </div>
 
@@ -790,12 +795,12 @@
         neuron. These trends hold across mouse facial motor nucleus and chickadee hippocampus.
       </p>
       <div class="figure-wrapper" style="margin-top: 20px;">
-        <img src="assets/figures/fig5_encoding.png" alt="Observed vs. predicted neural activity from BEAST3D splats, per-neuron Bits-Per-Spike scatter vs. keypoints, and average BPS across keypoints, BEAST, Pose Splatter, and BEAST3D.">
+        <img src="assets/figures/fig5_encoding_res.png" style="width: 75%; max-width: 520px; margin: 0 auto;" alt="Per-neuron Bits-Per-Spike scatter (BEAST3D vs. keypoints) and average BPS across keypoints, BEAST, Pose Splatter, and BEAST3D, for mouse facial motor nucleus and chickadee hippocampus.">
         <p class="figure-caption">
-          <strong>BEAST3D features improve neural encoding.</strong> <strong>a:</strong> observed vs.
-          predicted activity on held-out timepoints (Chickadee). <strong>b:</strong> per-neuron
-          Bits-Per-Spike, BEAST3D vs. keypoints. <strong>c:</strong> average BPS across keypoints,
-          BEAST, Pose Splatter, and BEAST3D, with S.E.M. across neurons.
+          <strong>BEAST3D features improve neural encoding.</strong> <strong>Left:</strong> per-neuron
+          Bits-Per-Spike (BPS), BEAST3D vs. keypoints, for mouse facial motor nucleus (Cheese3D) and
+          chickadee hippocampus. <strong>Right:</strong> average BPS across keypoints, BEAST, Pose
+          Splatter, and BEAST3D, with S.E.M. across neurons.
         </p>
       </div>
     </div>
@@ -847,15 +852,10 @@
   <script type="module">
     import * as THREE from 'three';
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
-    import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 
-    // One folder per dataset: assets/pointclouds/<dataset>/pointcloud.ply (+ images/)
-    const PC_FILES = {
-      cheese3d:  'assets/pointclouds/cheese3d/pointcloud.ply',
-      rat7m:     'assets/pointclouds/rat7m/pointcloud.ply',
-      chickadee: 'assets/pointclouds/chickadee/pointcloud.ply',
-      human36m:  'assets/pointclouds/human36m/pointcloud.ply'
-    };
+    // 4D point clouds: assets/pointclouds/<ds>/pc4d.bin (+ assets/pointclouds/pc4d.json)
+    const PC4D_META = 'assets/pointclouds/pc4d.json';
+    const pc4dBin = (ds) => 'assets/pointclouds/' + ds + '/pc4d.bin';
 
     // Input view images per dataset (under assets/pointclouds/<ds>/images/).
     const PC_IMAGES = {
@@ -864,82 +864,55 @@
       chickadee: ['lTop.png', 'lFront.png', 'lBack.png', 'rTop.png', 'rFront.png', 'rBack.png'],
       human36m:  ['01.png', '02.png', '03.png', '04.png']
     };
-
-    // Default opacity threshold per dataset (chickadee's splats are fainter).
-    const PC_DEFAULT_OPACITY = {
-      cheese3d:  0.05,
-      rat7m:     0.005,
-      chickadee: 0.01,
-      human36m:  0.005
-    };
-
-    // Format a threshold for display: up to 3 decimals, trailing zeros trimmed.
+    // These clouds store activated opacity in [0.05, 1]; 0.05 shows everything.
+    const PC_DEFAULT_OPACITY = { cheese3d: 0.05, rat7m: 0.05, chickadee: 0.05, human36m: 0.05 };
     const fmtOp = (v) => parseFloat(v.toFixed(3)).toString();
 
-    const canvas   = document.getElementById('pcViewer');
+    const canvas    = document.getElementById('pcViewer');
     const wrap      = document.getElementById('viewerWrap');
     const overlay   = document.getElementById('viewerOverlay');
     const spinner   = document.getElementById('viewerSpinner');
     const ovIcon    = document.getElementById('viewerIcon');
     const ovMsg     = document.getElementById('viewerMsg');
     const ovProgress= document.getElementById('viewerProgress');
-    const ovBar     = document.getElementById('viewerBar');
     const viewsWrap = document.getElementById('viewerViews');
     const viewsRow  = document.getElementById('viewerViewsRow');
+    const playBtn   = document.getElementById('playBtn');
     const rotateBtn = document.getElementById('rotateBtn');
     const resetBtn  = document.getElementById('resetBtn');
+    const timeSlider= document.getElementById('timeSlider');
     const sizeSlider= document.getElementById('sizeSlider');
     const opacitySlider = document.getElementById('opacitySlider');
     const opacityVal    = document.getElementById('opacityVal');
-    const opacityGroup  = document.getElementById('opacityGroup');
-
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    const scene  = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1.6, 0.01, 1000);
-    camera.position.set(0, 0, 3);
-
-    // TrackballControls allows unrestricted rotation (roll over the top/bottom
-    // poles), unlike OrbitControls which clamps the polar angle.
-    const controls = new TrackballControls(camera, canvas);
-    controls.rotateSpeed = 3.0;
-    controls.zoomSpeed = 1.2;
-    controls.noPan = true;
-    controls.staticMoving = false;
-    controls.dynamicDampingFactor = 0.15;
-    controls.minDistance = 1.0;
-    controls.maxDistance = 20.0;
-    let autoRotate = true;   // manual turntable spin (TrackballControls has none)
 
     const FOV = 45;
-    const loader = new PLYLoader();
-    // Expose the splat opacity (a logit) as a vertex attribute so we can threshold it.
-    loader.setCustomPropertyNameMapping({ alpha: ['opacity'] });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(FOV, 1.6, 0.01, 1000);
+    camera.position.set(0, 0, 7);   // zoomed out so the default view isn't too tight
 
-    let points = null;
-    let pointSize = parseFloat(sizeSlider.value);
+    // TrackballControls allows unrestricted rotation (roll over the poles).
+    const controls = new TrackballControls(camera, canvas);
+    controls.rotateSpeed = 3.0; controls.zoomSpeed = 1.2; controls.noPan = true;
+    controls.dynamicDampingFactor = 0.15; controls.minDistance = 1.0; controls.maxDistance = 20.0;
+    let autoRotate = true, playing = true, PLAY_FPS = 15;
 
-    // Shared shader material: per-point color + live opacity threshold + round sprites.
     const pcUniforms = {
-      uSize:      { value: pointSize * 0.01 },
+      uSize:      { value: parseFloat(sizeSlider.value) * 0.01 },
       uScale:     { value: 600.0 },
       uThreshold: { value: parseFloat(opacitySlider.value) }
     };
-    // Eased toward this target each frame so slider changes fade in smoothly.
-    let targetThreshold = pcUniforms.uThreshold.value;
+    let targetThreshold = pcUniforms.uThreshold.value;   // eased toward this
     const pcMaterial = new THREE.ShaderMaterial({
       uniforms: pcUniforms,
       vertexShader: `
         attribute vec3 aColor;
         attribute float aAlpha;
-        uniform float uSize;
-        uniform float uScale;
-        varying vec3 vColor;
-        varying float vAlpha;
+        uniform float uSize; uniform float uScale;
+        varying vec3 vColor; varying float vAlpha;
         void main() {
-          vColor = aColor;
-          vAlpha = aAlpha;
+          vColor = aColor; vAlpha = aAlpha;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = max(1.0, uSize * (uScale / -mv.z));
           gl_Position = projectionMatrix * mv;
@@ -948,112 +921,76 @@
       fragmentShader: `
         precision mediump float;
         uniform float uThreshold;
-        varying vec3 vColor;
-        varying float vAlpha;
+        varying vec3 vColor; varying float vAlpha;
         void main() {
           if (vAlpha < uThreshold) discard;
           vec2 c = gl_PointCoord - vec2(0.5);
           if (dot(c, c) > 0.25) discard;
-          // PLYLoader stores colors in linear space; convert back to sRGB for display.
-          gl_FragColor = vec4(pow(vColor, vec3(0.4545)), 1.0);
+          gl_FragColor = vec4(vColor, 1.0);   // rgb is already display colour
         }
       `
     });
+
+    // playback / cloud state
+    let META = null, NF = 0, MAXC = 0, COUNTS = null, OFFS = null;
+    let POS = null, RGB = null, ALPHA = null;
+    let points = null, posAttr = null, colAttr = null, alpAttr = null;
+    let frame = 0, frameF = 0, lastT = 0, userScrub = false;
 
     function showOverlay(msg, loading) {
       overlay.classList.remove('hidden');
       spinner.style.display = loading ? 'block' : 'none';
       ovIcon.style.display  = loading ? 'none'  : 'block';
       ovMsg.innerHTML = msg;
-      if (!loading) ovProgress.classList.add('hidden');
+      ovProgress.classList.add('hidden');
     }
     function hideOverlay() { overlay.classList.add('hidden'); }
 
-    // Update the download progress bar + label from a ProgressEvent.
-    function onLoadProgress(ev, verb) {
-      verb = verb || 'Loading point cloud';
-      if (ev && ev.lengthComputable && ev.total) {
-        const pct = Math.round(ev.loaded / ev.total * 100);
-        ovProgress.classList.remove('hidden');
-        ovBar.style.width = pct + '%';
-        ovMsg.innerHTML = verb + '&hellip; ' + pct + '%<br>' +
-          '<small>' + (ev.loaded / 1048576).toFixed(1) + ' / ' +
-          (ev.total / 1048576).toFixed(1) + ' MB</small>';
-      } else if (ev && ev.loaded) {
-        ovProgress.classList.add('hidden');
-        ovMsg.innerHTML = verb + '&hellip;<br><small>' +
-          (ev.loaded / 1048576).toFixed(1) + ' MB</small>';
-      }
-    }
-
     function clearPoints() {
-      if (points) {
-        scene.remove(points);
-        points.geometry.dispose();
-        points = null;
-      }
+      if (points) { scene.remove(points); points.geometry.dispose(); points = null; }
     }
 
-    // Sigmoid for 3DGS opacity logits. Clouds with no opacity field (e.g. from
-    // make_web_ply) get alpha = 1. NaN-proof: the PLYLoader fills a mapped-but-
-    // missing property with `undefined` (-> NaN), which must NOT reach the shader,
-    // or a NaN < threshold comparison can discard every point on some GPUs.
-    function buildAlpha(geometry, n) {
-      const attr = geometry.getAttribute('alpha');
-      const out = new Float32Array(n);
-      let finite = 0, lo = Infinity, hi = -Infinity;
-      if (attr) {
-        const src = attr.array;
-        for (let i = 0; i < n; i++) {
-          const v = src[i];
-          if (Number.isFinite(v)) { finite++; if (v < lo) lo = v; if (v > hi) hi = v; }
-        }
-      }
-      if (!attr || finite === 0) { out.fill(1.0); return { out, hasOpacity: false }; }
-      const src = attr.array;
-      const activated = lo >= 0 && hi <= 1;   // already 0..1 alphas vs. raw logits
-      for (let i = 0; i < n; i++) {
-        const v = src[i];
-        out[i] = Number.isFinite(v) ? (activated ? v : 1.0 / (1.0 + Math.exp(-v))) : 1.0;
-      }
-      return { out, hasOpacity: true };
-    }
-
-    function addGeometry(geometry) {
+    function buildGeometry(maxCount) {
       clearPoints();
-      geometry.computeBoundingBox();
-      const bb = geometry.boundingBox;
-      const center = new THREE.Vector3();
-      bb.getCenter(center);
-      const size = new THREE.Vector3();
-      bb.getSize(size);
-      const scale = 2.0 / (Math.max(size.x, size.y, size.z) || 1);
-      geometry.translate(-center.x, -center.y, -center.z);
-      geometry.scale(scale, scale, scale);
-      // These .ply clouds use a camera (Y-down) convention, so the animal
-      // renders upside down. Flip 180° about the horizontal axis so it's upright.
-      geometry.rotateX(Math.PI);
-
-      const n = geometry.getAttribute('position').count;
-
-      // Color -> aColor (default to cardinal if the cloud has no color).
-      const colorAttr = geometry.getAttribute('color');
-      if (colorAttr) {
-        geometry.setAttribute('aColor', new THREE.BufferAttribute(Float32Array.from(colorAttr.array), 3));
-      } else {
-        const c = new Float32Array(n * 3);
-        for (let i = 0; i < n; i++) { c[i*3] = 0.459; c[i*3+1] = 0.0; c[i*3+2] = 0.078; }
-        geometry.setAttribute('aColor', new THREE.BufferAttribute(c, 3));
-      }
-
-      // Opacity -> aAlpha (sigmoid of the stored logit).
-      const { out, hasOpacity } = buildAlpha(geometry, n);
-      geometry.setAttribute('aAlpha', new THREE.BufferAttribute(out, 1));
-      opacityGroup.style.display = hasOpacity ? 'flex' : 'none';
-
-      points = new THREE.Points(geometry, pcMaterial);
+      const g = new THREE.BufferGeometry();
+      posAttr = new THREE.BufferAttribute(new Float32Array(maxCount * 3), 3).setUsage(THREE.DynamicDrawUsage);
+      colAttr = new THREE.BufferAttribute(new Float32Array(maxCount * 3), 3).setUsage(THREE.DynamicDrawUsage);
+      alpAttr = new THREE.BufferAttribute(new Float32Array(maxCount), 1).setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute('position', posAttr);
+      g.setAttribute('aColor', colAttr);
+      g.setAttribute('aAlpha', alpAttr);
+      points = new THREE.Points(g, pcMaterial);
       scene.add(points);
-      hideOverlay();
+    }
+
+    function showFrame(i) {
+      if (!points || NF === 0) return;
+      frame = ((i % NF) + NF) % NF;
+      const s = OFFS[frame], cnt = OFFS[frame + 1] - OFFS[frame];
+      posAttr.array.set(POS.subarray(s * 3, (s + cnt) * 3)); posAttr.needsUpdate = true;
+      colAttr.array.set(RGB.subarray(s * 3, (s + cnt) * 3)); colAttr.needsUpdate = true;
+      alpAttr.array.set(ALPHA.subarray(s, s + cnt)); alpAttr.needsUpdate = true;
+      points.geometry.setDrawRange(0, cnt);
+      timeSlider.value = frame;
+    }
+
+    // decode bin: [ pos int16 (n*3) | rgb u8 (n*3) | opacity u8 (n) ].
+    // positions are normalised to [-1, 1]; the npz is already y-up (no flip).
+    function decode(buf, m) {
+      const n = m.totalPts;
+      const i16 = new Int16Array(buf, 0, n * 3);
+      const rgb = new Uint8Array(buf, n * 6, n * 3);
+      const op  = new Uint8Array(buf, n * 6 + n * 3, n);
+      POS = new Float32Array(n * 3);
+      for (let i = 0; i < n * 3; i++) POS[i] = i16[i] / 32767;
+      RGB = new Float32Array(n * 3);
+      for (let i = 0; i < n * 3; i++) RGB[i] = rgb[i] / 255;
+      ALPHA = new Float32Array(n);
+      for (let i = 0; i < n; i++) ALPHA[i] = op[i] / 255;
+      COUNTS = m.counts; NF = m.frames; PLAY_FPS = m.fps || 15;
+      OFFS = new Int32Array(NF + 1);
+      for (let i = 0; i < NF; i++) OFFS[i + 1] = OFFS[i] + COUNTS[i];
+      MAXC = COUNTS.reduce((a, b) => Math.max(a, b), 0);
     }
 
     function renderViews(ds) {
@@ -1063,78 +1000,63 @@
       const base = 'assets/pointclouds/' + ds + '/images/';
       files.forEach((name) => {
         const img = document.createElement('img');
-        img.src = base + name;
-        img.alt = ds + ' view ' + name;
-        img.loading = 'lazy';
+        img.src = base + name; img.alt = ds + ' view ' + name; img.loading = 'lazy';
         img.onerror = () => img.remove();
         viewsRow.appendChild(img);
       });
       viewsWrap.style.display = 'block';
     }
 
-    function loadDataset(ds) {
-      showOverlay('Loading point cloud&hellip;', true);
-      ovBar.style.width = '0%';
+    async function loadDataset(ds) {
+      showOverlay('Loading 4D point cloud&hellip;', true);
       renderViews(ds);
-      // Apply this dataset's default opacity threshold.
       const defOp = PC_DEFAULT_OPACITY[ds] ?? 0.05;
-      opacitySlider.value = defOp;
-      opacityVal.textContent = fmtOp(defOp);
-      pcUniforms.uThreshold.value = defOp;   // snap on dataset switch
-      targetThreshold = defOp;
-      const url = PC_FILES[ds];
-      loader.load(
-        url,
-        (geometry) => addGeometry(geometry),
-        (ev) => onLoadProgress(ev, 'Loading point cloud'),
-        () => {
-          clearPoints();
-          showOverlay(
-            'Point cloud for this dataset isn\'t added yet.<br>' +
-            'Drop a <code>.ply</code> file here, or add <code>' + url + '</code>.',
-            false
-          );
-        }
-      );
+      opacitySlider.value = defOp; opacityVal.textContent = fmtOp(defOp);
+      pcUniforms.uThreshold.value = defOp; targetThreshold = defOp;
+      try {
+        if (!META) META = await fetch(PC4D_META).then(r => { if (!r.ok) throw 0; return r.json(); });
+        const m = META[ds];
+        if (!m) throw 0;
+        const buf = await fetch(pc4dBin(ds)).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); });
+        decode(buf, m);
+        timeSlider.max = NF - 1;
+        buildGeometry(MAXC);
+        frame = 0; frameF = 0; showFrame(0);
+        hideOverlay();
+      } catch (e) {
+        clearPoints();
+        showOverlay("Couldn't load this dataset's 4D cloud.<br>" +
+          "<small>Run <code>assets/pointclouds/make_web_pc4d.py</code>.</small>", false);
+      }
     }
 
-    function setPointSize(v) {
-      pointSize = v;
-      pcUniforms.uSize.value = v * 0.01;
-    }
-
-    function resetView() {
-      controls.reset();                 // restores camera position/target/up
-      if (points) points.rotation.set(0, 0, 0);
-    }
+    function resetView() { controls.reset(); if (points) points.rotation.set(0, 0, 0); }
 
     function resize() {
-      const w = wrap.clientWidth;
-      const h = wrap.clientHeight;
+      const w = wrap.clientWidth, h = wrap.clientHeight;
       renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      controls.handleResize();          // TrackballControls caches the canvas rect
-      // Pixels-per-world-unit at unit depth, so point size attenuates like PointsMaterial.
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      controls.handleResize();
       pcUniforms.uScale.value = (h * renderer.getPixelRatio()) /
         (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2));
     }
 
-    function animate() {
+    function animate(t) {
       requestAnimationFrame(animate);
-      if (autoRotate && points) points.rotation.y += 0.005;
-      // Ease the opacity threshold toward its target so points fade in/out smoothly.
-      const u = pcUniforms.uThreshold;
-      if (Math.abs(u.value - targetThreshold) > 1e-5) {
-        u.value += (targetThreshold - u.value) * 0.18;
-      } else {
-        u.value = targetThreshold;
+      if (playing && !userScrub && NF > 0) {
+        if (lastT) frameF += (t - lastT) / 1000 * PLAY_FPS;
+        if (frameF >= 1) { showFrame(frame + Math.floor(frameF)); frameF %= 1; }
       }
+      lastT = t;
+      if (autoRotate && points) points.rotation.y += 0.005;
+      const u = pcUniforms.uThreshold;
+      if (Math.abs(u.value - targetThreshold) > 1e-5) u.value += (targetThreshold - u.value) * 0.18;
+      else u.value = targetThreshold;
       controls.update();
       renderer.render(scene, camera);
     }
 
-    // --- Dataset tabs (point-cloud viewer) ---
+    // --- dataset tabs ---
     document.querySelectorAll('#pcTabs .tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#pcTabs .tab-btn').forEach(b => b.classList.remove('active'));
@@ -1143,43 +1065,35 @@
       });
     });
 
-    // --- Controls ---
+    // --- controls ---
+    playBtn.addEventListener('click', () => {
+      playing = !playing; lastT = 0;
+      playBtn.classList.toggle('on', playing);
+      playBtn.innerHTML = playing ? '<i class="bi bi-pause-fill"></i> Pause'
+                                  : '<i class="bi bi-play-fill"></i> Play';
+    });
     rotateBtn.addEventListener('click', () => {
-      autoRotate = !autoRotate;
-      rotateBtn.classList.toggle('on', autoRotate);
+      autoRotate = !autoRotate; rotateBtn.classList.toggle('on', autoRotate);
     });
     resetBtn.addEventListener('click', resetView);
-    sizeSlider.addEventListener('input', (e) => setPointSize(parseFloat(e.target.value)));
+    sizeSlider.addEventListener('input', (e) => { pcUniforms.uSize.value = parseFloat(e.target.value) * 0.01; });
     opacitySlider.addEventListener('input', (e) => {
-      const v = parseFloat(e.target.value);
-      targetThreshold = v;              // animate() eases uThreshold toward this
-      opacityVal.textContent = fmtOp(v);
+      targetThreshold = parseFloat(e.target.value);
+      opacityVal.textContent = fmtOp(targetThreshold);
     });
+    // time slider scrubbing (don't let playback fight the drag)
+    const endScrub = () => { userScrub = false; lastT = 0; };
+    timeSlider.addEventListener('pointerdown', () => { userScrub = true; });
+    timeSlider.addEventListener('input', (e) => { userScrub = true; showFrame(parseInt(e.target.value)); });
+    timeSlider.addEventListener('change', endScrub);
+    window.addEventListener('pointerup', endScrub);
 
-    // --- Drag & drop a local .ply for preview ---
-    wrap.addEventListener('dragover', (e) => { e.preventDefault(); wrap.classList.add('dropactive'); });
-    wrap.addEventListener('dragleave', () => wrap.classList.remove('dropactive'));
-    wrap.addEventListener('drop', (e) => {
-      e.preventDefault();
-      wrap.classList.remove('dropactive');
-      const file = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (!file || !file.name.toLowerCase().endsWith('.ply')) return;
-      showOverlay('Reading ' + file.name + '&hellip;', true);
-      ovBar.style.width = '0%';
-      const reader = new FileReader();
-      reader.onprogress = (ev) => onLoadProgress(ev, 'Reading ' + file.name);
-      reader.onload = (ev) => {
-        try { addGeometry(loader.parse(ev.target.result)); }
-        catch (err) { showOverlay('Could not parse that .ply file.', false); }
-      };
-      reader.readAsArrayBuffer(file);
-    });
     canvas.addEventListener('pointerdown', () => wrap.classList.add('dragging'));
     window.addEventListener('pointerup', () => wrap.classList.remove('dragging'));
-
     window.addEventListener('resize', resize);
+
     resize();
-    animate();
+    animate(0);
     loadDataset('cheese3d');
   </script>
 

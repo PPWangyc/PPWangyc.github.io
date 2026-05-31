@@ -55,3 +55,7 @@ projects/beast3d/assets/**/*half_orbit_mask*.mp4
 projects/beast3d/assets/encoding/chickadee/web_seg_10s/
 projects/beast3d/assets/encoding/chickadee/web_seg60_active/
 projects/beast3d/assets/encoding/chickadee/web/raster_full_u8.bin
+
+# BEAST3D: raw half-orbit 4D point-cloud npz (source for the Explore panel).
+# make_web_pc4d.py converts these to the small pc4d.bin files that ship.
+projects/beast3d/assets/**/*half_orbit_pc*.npz
